@@ -1,6 +1,19 @@
-# SZTU 全自动评教脚本
+<div align="center">
+  <img src="https://raw.githubusercontent.com/acm-sztu/SZTU-Auto-Evaluator/main/logo.png" alt="Project Logo" width="150">
+  <h1>SZTU-Auto-Evaluator</h1>
+  <p>
+    <strong>深圳技术大学全自动评教脚本</strong>
+  </p>
+  <p>
+    <a href="https://github.com/acm-sztu/SZTU-Auto-Evaluator/blob/main/LICENSE"><img src="https://img.shields.io/github/license/acm-sztu/SZTU-Auto-Evaluator" alt="License"></a>
+    <a href="https://www.python.org/downloads/release/python-380/"><img src="https://img.shields.io/badge/python-3.8%2B-blue" alt="Python Version"></a>
+    <a href="https://github.com/acm-sztu/SZTU-Auto-Evaluator/issues"><img src="https://img.shields.io/github/issues/acm-sztu/SZTU-Auto-Evaluator" alt="Issues"></a>
+  </p>
+</div>
 
-这是一个为深圳技术大学（SZTU）教务系统编写的Python脚本，旨在全自动完成所有课程的教学评价任务。
+---
+
+这是一个为**深圳技术大学（SZTU）**教务系统编写的Python脚本，旨在全自动完成所有课程的教学评价任务。
 
 ## ✨ 功能特性
 
@@ -9,18 +22,19 @@
 - **人性化评分**：采用随机评分机制，并自动填写评语，避免被识别为机器人操作。
 - **两步式提交流程**：完美复刻浏览器"先保存，后提交"的操作，确保评教状态正确。
 - **健壮稳定**：内置网络重试机制，从容应对校园网的临时波动。
+- **独立运行**：所有逻辑封装于单个文件，无额外依赖，绿色便捷。
 
 ## 🚀 使用指南
 
 ### 1. 环境准备
 
-- 确保你的电脑上已经安装了 Python 3。
+- 确保你的电脑上已经安装了 Python (版本需 >= 3.8)。
 
 ### 2. 下载与安装
 
-首先，将本项目下载到你的电脑上。
+首先，将本项目下载或克隆到你的电脑上。
 
-然后，打开终端（或命令提示符），进入项目所在的文件夹（`主选`文件夹），并运行以下命令来安装所有必需的库：
+然后，打开终端（或命令提示符），**进入项目根目录**，并运行以下命令来安装所有必需的库：
 
 ```bash
 pip install -r requirements.txt
@@ -41,6 +55,24 @@ python auto_evaluate.py
 ```
 
 脚本会显示详细的执行过程，你只需耐心等待它完成所有任务即可。
+
+## 💡 工作原理
+
+脚本通过模拟真实用户在浏览器上的操作来完成任务：
+1.  **模拟登录**：使用 `requests` 库处理复杂的重定向和认证流程，获取登录凭证。
+2.  **任务发现**：访问评教主页，通过 `BeautifulSoup` 解析HTML，找到所有待评教课程的列表。
+3.  **数据采集**：逐个访问每门课程的评教页面，解析表单（`form`）中的所有字段，包括隐藏值、单选框、下拉菜单等。
+4.  **智能填充**：对评分项进行随机选择，并自动填写默认评语。
+5.  **两步式提交**：先将每门课的评教数据"保存"到服务器，最后执行一次"总提交"操作，完成整个评教流程。
+
+## ❓ 疑难解答 (FAQ)
+
+- **Q: 运行后提示"登录失败"怎么办?**
+  - **A:** 请检查 `config.txt` 中的学号和密码是否正确，并确保校园网连接正常。
+- **Q: 脚本卡住或出现网络错误怎么办?**
+  - **A:** 脚本内置了重试机制，通常能自行恢复。如果长时间无响应，可以尝试重新运行脚本。
+- **Q: 我可以修改评分逻辑或评语吗?**
+  - **A:** 当然可以！你可以直接在 `auto_evaluate.py` 文件中找到 `get_evaluate_form` 函数，修改其中的评分权重或默认评语。
 
 ## ⚠️ 免责声明
 

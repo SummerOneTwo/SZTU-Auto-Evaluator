@@ -1,4 +1,5 @@
 import requests, random, sys, time, traceback
+from collections import defaultdict
 from configparser import ConfigParser
 from urllib.parse import urlparse, parse_qs
 from auto_select import Auth
@@ -156,6 +157,7 @@ def submit_evaluation(auth, payload, submit_url, referer_url):
         "Referer": referer_url,
         "User-Agent": "Mozilla/5.0",
         "Origin": BASE_URL,
+        "Content-Type": "application/x-www-form-urlencoded",
     }
     resp = auth.session.post(submit_url, data=payload, headers=headers, timeout=15)
     return resp.text
@@ -180,24 +182,25 @@ def submit_final_evaluation(auth, list_page_url, num_tasks_in_list):
                 continue
             name = tag.get("name")
             value = tag.get("value", "")
-            if name and tag.get("type") not in ["submit", "button", "reset"]:
+            # Collect all inputs with a 'name' attribute
+            if name:
                 payload.append((name, value))
 
-        # Add the 'issavestr' parameter for each saved task, as seen in your captured data
+        # Add the 'issavestr' parameter for each saved task. The value is '是' (Yes).
         for _ in range(num_tasks_in_list):
             payload.append(("issavestr", "是"))
             
-        # The target URL for the final submission. This is a best guess based on system patterns.
-        FINAL_SUBMIT_URL = "https://jwxt.sztu.edu.cn/jsxsd/xspj/xspj_save.do"
+        # The correct target URL for the final submission, from captured network data.
+        FINAL_SUBMIT_URL = "https://jwxt.sztu.edu.cn/jsxsd/xspj/xspj_All_submit.do"
         
         print("...发送最终提交请求...")
+        # Use the generic submit function, as the headers and process are similar
         result = submit_evaluation(auth, payload, submit_url=FINAL_SUBMIT_URL, referer_url=list_page_url)
         
-        # The response for the final submit might be different from individual saves
-        if "提交成功" in result or "评价成功" in result:
+        if "提交成功" in result:
             print("✅ 最终提交成功！")
         else:
-            print(f"⚠️ 最终提交可能失败，服务器响应: {result[:100].strip()}...")
+            print(f"⚠️ 最终提交可能失败，服务器响应: {result[:150].strip()}...")
 
     except requests.exceptions.RequestException as e:
         print(f"最终提交时发生网络错误: {e}")
@@ -220,48 +223,55 @@ if __name__ == "__main__":
             
         print("✅ 登录成功，正在获取待评教列表...")
         tasks = get_pending_evaluations(a)
-        total_tasks = len(tasks)
         
-        if total_tasks == 0:
+        # Group tasks by their list_page_url to handle different evaluation categories
+        tasks_by_list_page = defaultdict(list)
+        for edit_url, list_page_url in tasks:
+            tasks_by_list_page[list_page_url].append(edit_url)
+
+        if not tasks_by_list_page:
             print("🎉 未发现待评教任务，或所有任务已完成。")
             sys.exit(0)
             
-        print(f"🔍 共发现 {total_tasks} 个待评教任务，将逐个保存...")
+        total_groups = len(tasks_by_list_page)
+        print(f"🔍 共发现 {len(tasks)} 个待评教任务，分布在 {total_groups} 个类别中。")
 
-        # 1. Loop through all tasks and "save" them
-        for idx, (edit_url, list_page_url) in enumerate(tasks, 1):
-            print(f"\n➡️ 正在保存第 {idx}/{total_tasks} 个任务...")
-            try:
-                payload = get_evaluate_form(a, edit_url)
-                
-                if not payload:
-                    print("表单采集失败，跳过。")
-                    continue
+        # Process each group of tasks
+        for i, (list_page_url, edit_urls) in enumerate(tasks_by_list_page.items(), 1):
+            num_tasks_in_group = len(edit_urls)
+            print(f"\n--- 正在处理第 {i}/{total_groups} 个评教类别 ({num_tasks_in_group} 个任务) ---")
+
+            # 1. Loop through all tasks in the group and "save" them
+            for idx, edit_url in enumerate(edit_urls, 1):
+                print(f"\n➡️ 正在保存第 {idx}/{num_tasks_in_group} 个任务 (类别 {i}/{total_groups})...")
+                try:
+                    payload = get_evaluate_form(a, edit_url)
                     
-                time.sleep(random.uniform(2, 5))
-                
-                # The "save" action posts to the save endpoint, not the list page.
-                save_url = "https://jwxt.sztu.edu.cn/jsxsd/xspj/xspj_save.do"
-                result = submit_evaluation(a, payload, submit_url=save_url, referer_url=edit_url)
-                
-                if "保存成功" in result:
-                    print(f"✅ 保存成功!")
-                else:
-                    print(f"⚠️ 保存失败。服务器响应:")
-                    print("--- BEGIN SERVER RESPONSE ---")
-                    print(result)
-                    print("--- END SERVER RESPONSE ---")
+                    if not payload:
+                        print("表单采集失败，跳过。")
+                        continue
+                        
+                    time.sleep(random.uniform(2, 5))
+                    
+                    save_url = "https://jwxt.sztu.edu.cn/jsxsd/xspj/xspj_save.do"
+                    result = submit_evaluation(a, payload, submit_url=save_url, referer_url=edit_url)
+                    
+                    if "保存成功" in result:
+                        print(f"✅ 保存成功!")
+                    else:
+                        print(f"⚠️ 保存失败。服务器响应:")
+                        print("--- BEGIN SERVER RESPONSE ---")
+                        print(result)
+                        print("--- END SERVER RESPONSE ---")
 
-            except requests.exceptions.RequestException as e:
-                print(f"处理保存任务时发生网络错误: {e}")
-                print("等待5秒后继续...")
-                time.sleep(5)
+                except requests.exceptions.RequestException as e:
+                    print(f"处理保存任务时发生网络错误: {e}")
+                    print("等待5秒后继续...")
+                    time.sleep(5)
 
-        # 2. After ALL tasks are saved, perform ONE final submit
-        print("\n--- 所有任务已保存完毕，正在进行最终提交 ---")
-        # Use the list_page_url from the last task for the final submission page
-        final_submit_list_page_url = tasks[-1][1]
-        submit_final_evaluation(a, final_submit_list_page_url, total_tasks)
+            # 2. After all tasks in the group are saved, perform the final submit for this group
+            print(f"\n--- 类别 {i} 的所有任务已暂存完毕，正在进行最终提交 ---")
+            submit_final_evaluation(a, list_page_url, num_tasks_in_group)
                  
         print("\n🎉 全部评教任务处理完毕！")
     except Exception as e:

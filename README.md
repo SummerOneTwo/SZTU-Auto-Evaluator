@@ -1,19 +1,10 @@
-<div align="center">
-  <img src="https://raw.githubusercontent.com/acm-sztu/SZTU-Auto-Evaluator/main/logo.png" alt="Project Logo" width="150">
-  <h1>SZTU-Auto-Evaluator</h1>
-  <p>
-    <strong>深圳技术大学全自动评教脚本</strong>
-  </p>
-  <p>
-    <a href="https://github.com/acm-sztu/SZTU-Auto-Evaluator/blob/main/LICENSE"><img src="https://img.shields.io/github/license/acm-sztu/SZTU-Auto-Evaluator" alt="License"></a>
-    <a href="https://www.python.org/downloads/release/python-380/"><img src="https://img.shields.io/badge/python-3.8%2B-blue" alt="Python Version"></a>
-    <a href="https://github.com/acm-sztu/SZTU-Auto-Evaluator/issues"><img src="https://img.shields.io/github/issues/acm-sztu/SZTU-Auto-Evaluator" alt="Issues"></a>
-  </p>
-</div>
+# SZTU-Auto-Evaluator
+
+深圳技术大学全自动评教脚本
 
 ---
 
-这是一个为**深圳技术大学（SZTU）**教务系统编写的Python脚本，旨在全自动完成所有课程的教学评价任务。
+这是一个为深圳技术大学（SZTU）教务系统编写的Python脚本，旨在全自动完成所有课程的教学评价任务。
 
 ## ✨ 功能特性
 

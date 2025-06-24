@@ -1,11 +1,95 @@
-import requests, random, sys, time, traceback
+import requests, random, sys, time, traceback, base64, urllib3
 from collections import defaultdict
 from configparser import ConfigParser
 from urllib.parse import urlparse, parse_qs
-from auto_select import Auth
 from bs4 import BeautifulSoup, Tag
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+from Crypto.Cipher import DES
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+
+def pad(data, block_size=8):
+    length = block_size - (len(data) % block_size)
+    return data.encode(encoding='utf-8') + (chr(length) * length).encode(encoding='utf-8')
+
+class Auth:
+    ok = False
+
+    def __init__(self):
+        self.session = requests.session()
+        self.session.headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) ' \
+                                             'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/97.0.4692.99 Safari/537.36'
+
+    def login(self, school_id, password):
+        try:
+            self.session.headers['Host'] = 'jwxt.sztu.edu.cn'
+            resp = self.session.get('https://jwxt.sztu.edu.cn/', verify=False, allow_redirects=False, timeout=10)
+            
+            resp = self.session.get(resp.headers['Location'], verify=False, allow_redirects=False, timeout=10)
+            resp = self.session.get(resp.headers['Location'], verify=False, allow_redirects=False, timeout=10)
+            
+            self.session.headers['Host'] = 'auth.sztu.edu.cn'
+            self.session.get(resp.headers['Location'], verify=False, allow_redirects=False, timeout=10)
+            
+            self.session.headers.update({
+                'Referer': 'https://auth.sztu.edu.cn/idp/authcenter/ActionAuthChain?entityId=jiaowu',
+                'Origin': 'https://auth.sztu.edu.cn',
+                'X-Requested-With': 'XMLHttpRequest',
+            })
+            self.session.get('https://auth.sztu.edu.cn/idp/AuthnEngine', verify=False, allow_redirects=False, timeout=10)
+            self.session.get('https://auth.sztu.edu.cn/idp/authcenter/ActionAuthChain?entityId=jiaowu', verify=False, allow_redirects=False, timeout=10)
+            
+            data = {
+                'j_username': school_id,
+                'j_password': self.encryptByDES(password),
+                'j_checkcode': '验证码',
+                'op': 'login',
+                'spAuthChainCode': 'cc2fdbc3599b48a69d5c82a665256b6b'
+            }
+
+            resp_auth = self.session.post('https://auth.sztu.edu.cn/idp/authcenter/ActionAuthChain', data=data, verify=False, allow_redirects=False, timeout=10)
+            resp_json = resp_auth.json()
+            
+            if resp_json.get('loginFailed') != 'false':
+                print(f"登录失败: {resp_json.get('msg', '未知错误')}")
+                self.ok = False
+                return False
+
+            resp_sso = self.session.post('https://auth.sztu.edu.cn/idp/AuthnEngine?currentAuth=urn_oasis_names_tc_SAML_2.0_ac_classes_BAMUsernamePassword', data=data, verify=False, allow_redirects=False, timeout=10)
+            ssoURL = resp_sso.headers['Location']
+            resp_logon = self.session.get(ssoURL, verify=False, allow_redirects=False, timeout=10)
+            logonUrl = resp_logon.headers['Location']
+
+            self.session.headers['Host'] = 'jwxt.sztu.edu.cn'
+            resp_final_redirect = self.session.get(logonUrl, verify=False, allow_redirects=False, timeout=10)
+            loginToTkUrl = resp_final_redirect.headers['Location']
+            self.session.get(loginToTkUrl, verify=False, allow_redirects=False, timeout=10)
+
+            self.check_login()
+            return self.ok
+        except requests.exceptions.RequestException as e:
+            print(f"登录过程中发生网络错误: {e}")
+            self.ok = False
+            return False
+        except Exception as e:
+            print(f"登录过程中发生未知错误: {e}")
+            traceback.print_exc()
+            self.ok = False
+            return False
+
+    @staticmethod
+    def encryptByDES(message, key='PassB01Il71'):
+        key1 = key.encode('utf-8')[:8]
+        cipher = DES.new(key=key1, mode=DES.MODE_ECB)
+        encrypted_text = cipher.encrypt(pad(message, block_size=8))
+        encrypted_text = base64.b64encode(encrypted_text).decode('utf-8')
+        return encrypted_text
+
+    def check_login(self):
+        resp = self.session.get('https://jwxt.sztu.edu.cn/jsxsd/framework/xsMain.htmlx', verify=False, timeout=10, allow_redirects=True)
+        self.ok = resp.status_code == 200 and 'auth.sztu.edu.cn' not in resp.url
 
 def get_session_with_retries(session):
     retry_strategy = Retry(

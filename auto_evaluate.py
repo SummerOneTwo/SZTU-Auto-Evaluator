@@ -133,7 +133,27 @@ def get_evaluate_form(auth, edit_url):
 
     for name, radios in radio_groups.items():
         if radios:
-            chosen_radio = random.choice(radios)
+            # 优先选择"同意"和"大体同意"
+            preferred_options = []
+            for r in radios:
+                # 尝试读取单选按钮旁边的文本标签
+                label_node = r.next_sibling
+                if label_node and isinstance(label_node, str):
+                    label_text = label_node.strip()
+                    if label_text in ["同意", "大体同意"]:
+                        preferred_options.append(r)
+
+            if preferred_options:
+                # 在"同意"和"大体同意"中随机选择一个
+                chosen_radio = random.choice(preferred_options)
+            else:
+                # 如果找不到指定标签（备用方案），则假定前两个选项是最好的，并从中随机选择
+                # 这样可以确保在HTML结构不同时，脚本依然能给出高分评价
+                if len(radios) > 1:
+                    chosen_radio = random.choice(radios[:2])
+                else:
+                    chosen_radio = radios[0]
+            
             payload.append((name, chosen_radio.get('value', '')))
     
     # Explicitly add the "save" button's data to the payload.

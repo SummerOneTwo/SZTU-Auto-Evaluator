@@ -1,0 +1,10 @@
+# 个人配置文件
+config.txt
+
+# Python 缓存
+__pycache__/
+*.pyc
+
+# IDE/编辑器 配置文件
+.vscode/
+.idea/ 
